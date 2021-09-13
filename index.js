@@ -60,12 +60,14 @@ async function sendFile(req, res, file, { cors }) {
     headers['Accept-Ranges'] = 'bytes'
   }
 
-  res.writeHead(code, headers)
   if (file.endsWith('.html')) {
     let html = await readFile(file, 'utf-8')
     html = prependHead(html, `<script>${ReloadScript}</script>`)
+    headers['Content-Length'] = html.length
+    res.writeHead(code, headers)
     res.end(html)
   } else {
+    res.writeHead(code, headers)
     createReadStream(file, opts).pipe(res)
   }
 }

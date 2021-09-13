@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import sade from 'sade'
 import version from './version.cjs'
 import serve from './index.js'

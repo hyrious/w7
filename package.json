@@ -1,0 +1,30 @@
+{
+  "name": "@hyrious/w7",
+  "version": "0.1.0",
+  "description": "Serve the pure html, update the browser on change.",
+  "repository": "hyrious/w7",
+  "type": "module",
+  "bin": "bin.js",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "bin.js",
+    "index.js",
+    "index.d.ts",
+    "version.cjs"
+  ],
+  "keywords": [
+    "serve",
+    "development",
+    "site"
+  ],
+  "author": "hyrious <hyrious@outlook.com>",
+  "license": "MIT",
+  "dependencies": {
+    "chokidar": "^3.5.2",
+    "get-port": "^5.1.1",
+    "local-access": "^1.1.0",
+    "mime": "^2.5.2",
+    "sade": "^1.7.4"
+  }
+}

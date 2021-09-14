@@ -150,10 +150,7 @@ async function sendFile(req: IncomingMessage, res: ServerResponse, file: string)
 
   if (file.endsWith('.html')) {
     let html = await readFile(file, 'utf-8')
-    html = prependHead(html, ReloadScript)
-    headers['Content-Length'] = html.length
-    res.writeHead(code, headers)
-    res.end(html)
+    sendHTML(req, res, html)
   } else {
     res.writeHead(code, headers)
     createReadStream(file, opts).pipe(res)
@@ -228,7 +225,7 @@ new EventSource('/__source').addEventListener('message', ({ data }) => {
 function sendHTML(req: IncomingMessage, res: ServerResponse, html: string) {
   html = prependHead(html, ReloadScript)
   res.writeHead(200, {
-    'Content-Length': html.length,
+    'Content-Length': Buffer.byteLength(html),
     'Content-Type': 'text/html',
     'Cache-Control': 'no-store',
   })

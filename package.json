@@ -1,6 +1,6 @@
 {
   "name": "@hyrious/w7",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Serve the pure html, update the browser on change.",
   "repository": "hyrious/w7",
   "type": "module",

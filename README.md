@@ -1,14 +1,12 @@
 ## @hyrious/w7
 
-This is a small **subset** of [ulivz/w7](https://github.com/ulivz/w7).
-
-**Note**: This library is ESM only.
+Serve a folder / file, with auto reload.
 
 ### Usage
 
 ```bash
 npm i -g @hyrious/w7
-w7 index.html
+w7
 ```
 
 ### Alternatives

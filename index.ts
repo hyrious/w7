@@ -6,7 +6,7 @@ import getPort from 'get-port'
 import { createServer, IncomingMessage, ServerResponse } from 'http'
 import localAccess from 'local-access'
 import mime from 'mime/lite.js'
-import { dirname, join, normalize, relative, resolve } from 'path'
+import { basename, dirname, join, normalize, relative, resolve } from 'path'
 
 export interface Options {
   cors?: boolean
@@ -14,6 +14,7 @@ export interface Options {
   logs?: boolean
   host?: string
   port?: number
+  single?: boolean | string
 }
 
 function notFound(req: IncomingMessage, res: ServerResponse) {
@@ -65,6 +66,19 @@ export default async function serve(entry: string, opts: Options = {}) {
     try {
       if (existsSync(filename)) {
         await sendFile(req, res, filename)
+      } else if (opts.single) {
+        if (typeof opts.single === 'string') {
+          filename = opts.single
+        } else if (entryIsFile) {
+          filename = entry
+        } else {
+          filename = 'index.html'
+        }
+        if (existsSync(filename)) {
+          await sendFile(req, res, filename)
+        } else {
+          notFound(req, res)
+        }
       } else if (tryIndex) {
         await listDir(req, res, dirname(filename))
       } else {
@@ -107,7 +121,7 @@ export default async function serve(entry: string, opts: Options = {}) {
 function resolveFilename(pathname: string, entryIsFile: boolean, entry: string, dir: string) {
   let filename = pathname
   if (filename === '/' && entryIsFile) {
-    filename = entry
+    filename = basename(entry)
   }
   let tryIndex = false
   if (filename.endsWith('/')) {
@@ -189,8 +203,7 @@ async function listDir(req: IncomingMessage, res: ServerResponse, dir: string) {
   sendHTML(req, res, html)
 }
 
-const ErrorTemplate = `
-<!DOCTYPE html>
+const ErrorTemplate = `<!DOCTYPE html>
 <html><head>
 <title>Error</title>
 <meta charset="utf-8"></head><body>

@@ -42,7 +42,7 @@ export default async function serve(entry: string, opts: Options = {}) {
     let pathname = req.url || '/'
 
     let idx
-    if (!~(idx = pathname.indexOf('?', 1))) {
+    if (~(idx = pathname.indexOf('?', 1))) {
       pathname = pathname.substring(idx)
     }
 

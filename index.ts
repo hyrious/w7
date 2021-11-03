@@ -43,7 +43,7 @@ export default async function serve(entry: string, opts: Options = {}) {
 
     let idx
     if (~(idx = pathname.indexOf('?', 1))) {
-      pathname = pathname.substring(idx)
+      pathname = pathname.substring(0, idx)
     }
 
     if (pathname.includes('%')) {

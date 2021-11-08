@@ -33,10 +33,15 @@ export default async function serve(entry: string, opts: Options = {}) {
     ignorePermissionErrors: true,
     disableGlobbing: true,
   })
-  // prettier-ignore
-  watcher.on('change', debounceFn(() => {
-    clients.forEach(client => client.write('data: reload\n\n'))
-  }))
+  watcher.on(
+    'change',
+    debounceFn(
+      () => {
+        clients.forEach(client => client.write('data: reload\n\n'))
+      },
+      { wait: 100 }
+    )
+  )
 
   let server = createServer(async (req, res) => {
     let pathname = req.url || '/'

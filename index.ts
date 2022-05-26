@@ -226,19 +226,14 @@ const headPrependInjectRE = [/<head>/, /<!doctype html>/i]
 function prependHead(html: string, code: string) {
   for (const re of headPrependInjectRE) {
     if (re.test(html)) {
-      return html.replace(re, `$&\n${code}`)
+      return html.replace(re, `$&${code}`)
     }
   }
   return code + '\n' + html
 }
 
-const ReloadScript = `<script>
-new EventSource('/__source').addEventListener('message', ({ data }) => {
-  if (data === "reload") {
-    location.reload();
-  }
-});
-</script>`
+const ReloadScript =
+  "<script> new EventSource('/__source').addEventListener('message', ({ data }) => { if (data === 'reload') location.reload(); }); </script>"
 
 function sendHTML(req: IncomingMessage, res: ServerResponse, html: string) {
   html = prependHead(html, ReloadScript)

@@ -1,12 +1,13 @@
+import { createServer, IncomingMessage, ServerResponse } from 'http'
+import { readdir, readFile } from 'fs/promises'
+import { createReadStream, existsSync, statSync } from 'fs'
+import { basename, dirname, join, normalize, relative, resolve } from 'path'
+
 import chokidar from 'chokidar'
 import debounceFn from 'debounce-fn'
-import { createReadStream, existsSync, statSync } from 'fs'
-import { readdir, readFile } from 'fs/promises'
 import getPort from 'get-port'
-import { createServer, IncomingMessage, ServerResponse } from 'http'
 import localAccess from 'local-access'
-import mime from 'mime/lite.js'
-import { basename, dirname, join, normalize, relative, resolve } from 'path'
+import { lookup } from 'mrmime'
 
 export interface Options {
   cors?: boolean
@@ -35,12 +36,7 @@ export default async function serve(entry: string, opts: Options = {}) {
   })
   watcher.on(
     'change',
-    debounceFn(
-      () => {
-        clients.forEach(client => client.write('data: reload\n\n'))
-      },
-      { wait: 100 }
-    )
+    debounceFn(() => clients.forEach(client => client.write('data: reload\n\n')), { wait: 100 })
   )
 
   let server = createServer(async (req, res) => {
@@ -145,7 +141,7 @@ async function sendFile(req: IncomingMessage, res: ServerResponse, file: string)
 
   let headers: Record<string, string | number> = {
     'Content-Length': stats.size,
-    'Content-Type': mime.getType(file) || '',
+    'Content-Type': lookup(file) || 'text/plain',
     'Cache-Control': 'no-store',
   }
   let code = 200

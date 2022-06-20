@@ -16,6 +16,7 @@ export interface Options {
   host?: string
   port?: number
   single?: boolean | string
+  preview?: boolean
 }
 
 function notFound(req: IncomingMessage, res: ServerResponse) {
@@ -23,21 +24,27 @@ function notFound(req: IncomingMessage, res: ServerResponse) {
   res.end()
 }
 
+let preview = false
+
 export default async function serve(entry: string, opts: Options = {}) {
   entry = resolve(entry || '.')
+  preview = Boolean(opts.preview)
   let entryIsFile = statSync(entry).isFile()
   let dir = entryIsFile ? dirname(entry) : entry
-  let clients = new Set<ServerResponse>()
-  let watcher = chokidar.watch(entry, {
-    ignored: ['**/node_modules/**', '**/.git/**'],
-    ignoreInitial: true,
-    ignorePermissionErrors: true,
-    disableGlobbing: true,
-  })
-  watcher.on(
-    'change',
-    debounceFn(() => clients.forEach(client => client.write('data: reload\n\n')), { wait: 100 })
-  )
+  let clients: Set<ServerResponse>
+  if (!preview) {
+    clients = new Set<ServerResponse>()
+    let watcher = chokidar.watch(entry, {
+      ignored: ['**/node_modules/**', '**/.git/**'],
+      ignoreInitial: true,
+      ignorePermissionErrors: true,
+      disableGlobbing: true,
+    })
+    watcher.on(
+      'change',
+      debounceFn(() => clients.forEach(client => client.write('data: reload\n\n')), { wait: 100 })
+    )
+  }
 
   let server = createServer(async (req, res) => {
     let pathname = req.url || '/'
@@ -58,7 +65,7 @@ export default async function serve(entry: string, opts: Options = {}) {
       res.setHeader('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, Range')
     }
 
-    if (pathname === '/__source') {
+    if (!preview && pathname === '/__source') {
       return clientJoin(clients, res, opts)
     }
 
@@ -168,7 +175,7 @@ async function sendFile(req: IncomingMessage, res: ServerResponse, file: string)
     sendHTML(req, res, html)
   } else {
     res.writeHead(code, headers)
-    createReadStream(file, opts).pipe(res)
+    createReadStream(file, opts).pipe(res, { end: true })
   }
 }
 
@@ -232,7 +239,9 @@ const ReloadScript =
   "<script> new EventSource('/__source').addEventListener('message', ({ data }) => { if (data === 'reload') location.reload(); }); </script>"
 
 function sendHTML(req: IncomingMessage, res: ServerResponse, html: string) {
-  html = prependHead(html, ReloadScript)
+  if (!preview) {
+    html = prependHead(html, ReloadScript)
+  }
   res.writeHead(200, {
     'Content-Length': Buffer.byteLength(html),
     'Content-Type': 'text/html',

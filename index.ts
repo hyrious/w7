@@ -95,6 +95,8 @@ export default async function serve(entry: string, opts: Options = {}) {
           let single = typeof opts.single === 'string' ? opts.single : 'index.html'
           let file = join(dir, single)
           await trySendFile(req, res, file)
+        } else {
+          notFound(req, res)
         }
       }
     } catch (err) {

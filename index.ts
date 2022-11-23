@@ -1,7 +1,7 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http'
 import { readdir, readFile } from 'fs/promises'
 import { createReadStream, existsSync, statSync } from 'fs'
-import { basename, dirname, join, normalize, relative, resolve } from 'path'
+import { dirname, join, relative, resolve } from 'path'
 
 import chokidar from 'chokidar'
 import debounceFn from 'debounce-fn'
@@ -42,16 +42,18 @@ export default async function serve(entry: string, opts: Options = {}) {
     })
     watcher.on(
       'change',
-      debounceFn(() => clients.forEach(client => client.write('data: reload\n\n')), { wait: 100 })
+      debounceFn(() => clients.forEach((client) => client.write('data: reload\n\n')), { wait: 100 })
     )
   }
+
+  let indexFile = entryIsFile ? entry : join(dir, 'index.html')
 
   let server = createServer(async (req, res) => {
     let pathname = req.url || '/'
 
     let idx
     if (~(idx = pathname.indexOf('?', 1))) {
-      pathname = pathname.substring(0, idx)
+      pathname = pathname.slice(0, idx)
     }
 
     if (pathname.includes('%')) {
@@ -69,28 +71,31 @@ export default async function serve(entry: string, opts: Options = {}) {
       return clientJoin(clients, res, opts)
     }
 
-    let { filename, tryIndex } = resolveFilename(pathname, entryIsFile, entry, dir)
-
     try {
-      if (existsSync(filename)) {
-        await sendFile(req, res, filename)
-      } else if (opts.single) {
-        if (typeof opts.single === 'string') {
-          filename = opts.single
-        } else if (entryIsFile) {
-          filename = entry
+      if (pathname === '/') {
+        await trySendFile(req, res, indexFile)
+      } else if (pathname.endsWith('/')) {
+        let file = join(dir, pathname, 'index.html')
+        if (existsSync(file)) {
+          await sendFile(req, res, file)
         } else {
-          filename = 'index.html'
+          await listDir(req, res, join(dir, pathname))
         }
-        if (existsSync(filename)) {
-          await sendFile(req, res, filename)
-        } else {
-          notFound(req, res)
-        }
-      } else if (tryIndex) {
-        await listDir(req, res, dirname(filename))
       } else {
-        notFound(req, res)
+        let file = join(dir, pathname)
+        if (existsSync(file)) {
+          if (statSync(file).isDirectory()) {
+            sendRedirect(req, res, pathname + '/')
+          } else {
+            await sendFile(req, res, file)
+          }
+        } else if (existsSync(file + '.html')) {
+          await sendFile(req, res, file + '.html')
+        } else if (opts.single) {
+          let single = typeof opts.single === 'string' ? opts.single : 'index.html'
+          let file = join(dir, single)
+          await trySendFile(req, res, file)
+        }
       }
     } catch (err) {
       sendError(req, res, err)
@@ -126,18 +131,18 @@ export default async function serve(entry: string, opts: Options = {}) {
   return server
 }
 
-function resolveFilename(pathname: string, entryIsFile: boolean, entry: string, dir: string) {
-  let filename = pathname
-  if (filename === '/' && entryIsFile) {
-    filename = basename(entry)
+function sendRedirect(req: IncomingMessage, res: ServerResponse, location: string) {
+  res.statusCode = 302
+  res.setHeader('Location', location)
+  res.end()
+}
+
+async function trySendFile(req: IncomingMessage, res: ServerResponse, file: string) {
+  if (existsSync(file)) {
+    await sendFile(req, res, file)
+  } else {
+    notFound(req, res)
   }
-  let tryIndex = false
-  if (filename.endsWith('/')) {
-    filename += 'index.html'
-    tryIndex = true
-  }
-  filename = normalize(join(dir, filename))
-  return { filename, tryIndex }
 }
 
 async function sendFile(req: IncomingMessage, res: ServerResponse, file: string) {
@@ -205,7 +210,7 @@ async function listDir(req: IncomingMessage, res: ServerResponse, dir: string) {
   let files = await readdir(dir, { encoding: 'utf-8', withFileTypes: true })
   let data: Record<string, string> = {
     dir: relative(process.cwd(), dir) || '.',
-    files: JSON.stringify(files.map(file => (file.isDirectory() ? file.name + '/' : file.name))),
+    files: JSON.stringify(files.map((file) => (file.isDirectory() ? file.name + '/' : file.name))),
   }
   let html = DirectoryTemplate.replace(/{(\w+)}/g, (_, key) => data[key] || '')
   sendHTML(req, res, html)

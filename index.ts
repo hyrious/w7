@@ -32,6 +32,7 @@ export default async function serve(entry: string, opts: Options = {}) {
   let entryIsFile = statSync(entry).isFile()
   let dir = entryIsFile ? dirname(entry) : entry
   let clients: Set<ServerResponse>
+
   if (!preview) {
     clients = new Set<ServerResponse>()
     let watcher = chokidar.watch(entry, {
@@ -72,8 +73,8 @@ export default async function serve(entry: string, opts: Options = {}) {
     }
 
     try {
-      if (pathname === '/') {
-        await trySendFile(req, res, indexFile)
+      if (pathname === '/' && existsSync(indexFile)) {
+        await sendFile(req, res, indexFile)
       } else if (pathname.endsWith('/')) {
         let file = join(dir, pathname, 'index.html')
         if (existsSync(file)) {
@@ -94,7 +95,11 @@ export default async function serve(entry: string, opts: Options = {}) {
         } else if (opts.single) {
           let single = typeof opts.single === 'string' ? opts.single : 'index.html'
           let file = join(dir, single)
-          await trySendFile(req, res, file)
+          if (existsSync(file)) {
+            await sendFile(req, res, file)
+          } else {
+            notFound(req, res)
+          }
         } else {
           notFound(req, res)
         }
@@ -124,6 +129,7 @@ export default async function serve(entry: string, opts: Options = {}) {
   server.listen(port, hostname, () => {
     if (opts.quiet) return
     let { local, network } = localAccess({ port, hostname })
+    local = local.replace(/0\.0\.0\.0|127\.0\.0\.1/g, 'localhost')
     console.log(`serving ${local}`)
     if (!hostname.includes('localhost')) {
       console.log(`serving ${network}`)
@@ -139,24 +145,24 @@ function sendRedirect(req: IncomingMessage, res: ServerResponse, location: strin
   res.end()
 }
 
-async function trySendFile(req: IncomingMessage, res: ServerResponse, file: string) {
-  if (existsSync(file)) {
-    await sendFile(req, res, file)
-  } else {
-    notFound(req, res)
-  }
-}
-
 async function sendFile(req: IncomingMessage, res: ServerResponse, file: string) {
   const stats = statSync(file)
   if (stats.isDirectory()) {
     return listDir(req, res, file)
   }
 
+  const Etag = `W/"${stats.size}-${stats.mtime.getTime()}"`
+  if (req.headers['if-none-match'] === Etag) {
+    res.statusCode = 304
+    return res.end()
+  }
+
   let headers: Record<string, string | number> = {
     'Content-Length': stats.size,
     'Content-Type': lookup(file) || 'text/plain',
-    'Cache-Control': 'no-store',
+    'Last-Modified': stats.mtime.toUTCString(),
+    'Etag': Etag,
+    'Cache-Control': 'no-cache',
   }
   let code = 200
   let opts: { start?: number; end?: number } = {}
@@ -263,7 +269,7 @@ function clientJoin(clients: Set<ServerResponse>, res: ServerResponse, opts: Opt
   let headers: Record<string, string | number> = {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
+    'Connection': 'keep-alive',
   }
   res.writeHead(200, headers)
   res.write(': connected\n\n')

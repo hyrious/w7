@@ -1,6 +1,6 @@
 {
   "name": "@hyrious/w7",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Serve the pure html, update the browser on change.",
   "keywords": [
     "serve",
